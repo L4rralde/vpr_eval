@@ -45,6 +45,7 @@ def get_val_dataset(dataset_name, transform):
     ground_truth = ds.ground_truth
     return ds, num_references, num_queries, ground_truth
 
+
 def get_descriptors(model, dataloader, device):
     descriptors = []
     with torch.no_grad():
@@ -85,30 +86,36 @@ def parse_args():
     return args
 
 
-if __name__ == '__main__':
-
+def model_eval(
+    model: torch.nn.Module,
+    img_size: int,
+    mean_std: str = 'imagenet',
+    crop: bool = False,
+    val_datasets: list = ['SPED'],
+    verbose: bool = False
+):
+    model = model.eval()
+    model = model.to('cuda')
     torch.backends.cudnn.benchmark = True
 
-    args = parse_args()
-    print(args)
-    model = vpr_models.DinoV3.ViTBase().eval()
-    model = model.to('cuda')
+    input_transform = make_compose_transform(img_size, mean_std, crop)
+    recalls = {}
 
-    input_transform = make_compose_transform(args.image_size, args.mean_std, args.crop)
-
-    for val_name in args.val_datasets:
+    for val_name in val_datasets:
         val_dataset, num_references, num_queries, ground_truth = get_val_dataset(val_name, input_transform)
-        val_loader = DataLoader(val_dataset, num_workers=8, batch_size=args.batch_size, shuffle=False, pin_memory=True)
+        val_loader = DataLoader(val_dataset, num_workers=8, batch_size=32, shuffle=False, pin_memory=True)
 
-        print(f'Evaluating on {val_name}')
+        if verbose:
+            print(f'Evaluating on {val_name}')
         descriptors = get_descriptors(model, val_loader, 'cuda')
         
-        print(f'Descriptor dimension {descriptors.shape[1]}')
+        if verbose:
+            print(f'Descriptor dimension {descriptors.shape[1]}')
         r_list = descriptors[ : num_references]
         q_list = descriptors[num_references : ]
 
-        print('total_size', descriptors.shape[0], num_queries + num_references)
-
+        if verbose:
+            print('total_size', descriptors.shape[0], num_queries + num_references)
 
         preds = get_validation_recalls(
             r_list=r_list,
@@ -121,4 +128,24 @@ if __name__ == '__main__':
         )
 
         del descriptors
-        print('========> DONE!\n\n')
+        if verbose:
+            print('========> DONE!\n\n')
+
+        recalls[val_name] = preds
+    return recalls
+
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    print(args)
+    model = vpr_models.DinoV3.ViTBase()
+    model_eval(
+        model,
+        args.image_size,
+        args.mean_std,
+        args.crop,
+        args.val_datasets,
+        verbose=True
+    )
+

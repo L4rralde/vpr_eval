@@ -39,6 +39,8 @@ def make_compose_transform(new_size: int = 224, mean_std: str="imagenet", crop: 
         normalize = Normalize.imagenet_normalize
     elif mean_std == "dinov3":
         normalize = Normalize.dinov3_normalize
+    else:
+        raise RuntimeError("Invalid mean_std")
     
     if crop:
         return v2.Compose([center_crop, resize, to_tensor,normalize])

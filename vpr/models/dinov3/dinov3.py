@@ -43,4 +43,4 @@ class DinoV3(nn.Module):
 
     @classmethod
     def ConvexNetLarge(cls):
-        return cls("dinov3_conv_l")
+        return cls("dinov3_convnext_large")
